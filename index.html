@@ -322,6 +322,7 @@
   </div>
 
   <script>
+    // Firebase Realtime Database
     const DB_URL = "https://reuse-paper-sync-default-rtdb.asia-southeast1.firebasedatabase.app/paperBoxes.json";
 
     const LEVEL_CONFIG = {
@@ -330,114 +331,209 @@
       low:  { label: "น้อย", height: "20%", color: "#dc2626", pillClass: "level-low", btnClass: "active-low" }
     };
 
+    const BOX_KEYS = ["boxA", "boxB"];
+    const POLL_INTERVAL = 10000;
+    const REQUEST_TIMEOUT = 10000;
+
     let currentState = {
       boxA: { level: "high", updatedAt: "-" },
       boxB: { level: "high", updatedAt: "-" }
     };
 
-    function setSyncStatus(state, text) {
+    // ป้องกันข้อมูลจากเซิร์ฟเวอร์เขียนทับระหว่างที่กำลังบันทึก
+    const pendingSaves = new Set();
+    let pollTimer = null;
+    let isFetching = false;
+    let isOnline = false;
+
+    function setSyncStatus(state, message) {
       const dot = document.getElementById("syncDot");
       const label = document.getElementById("syncText");
       dot.className = "dot " + state;
-      label.textContent = text;
+      label.textContent = message;
+    }
+
+    function getThaiTimestamp() {
+      return new Date().toLocaleString("th-TH", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }) + " น.";
+    }
+
+    function normalizeBox(data) {
+      const level = data && LEVEL_CONFIG[data.level] ? data.level : "high";
+      return {
+        level,
+        updatedAt: data && typeof data.updatedAt === "string" ? data.updatedAt : "-"
+      };
     }
 
     function renderBox(boxKey, data) {
-      const level = LEVEL_CONFIG[data.level] ? data.level : "high";
-      const cfg = LEVEL_CONFIG[level];
+      const safeData = normalizeBox(data);
+      const cfg = LEVEL_CONFIG[safeData.level];
 
       const fill = document.getElementById("fill-" + boxKey);
+      const badge = document.getElementById("badge-" + boxKey);
+      const timeEl = document.getElementById("time-" + boxKey);
+
       fill.style.height = cfg.height;
       fill.style.backgroundColor = cfg.color;
-
-      const badge = document.getElementById("badge-" + boxKey);
       badge.textContent = cfg.label;
       badge.className = "status-pill " + cfg.pillClass;
+      timeEl.textContent = "อัปเดตล่าสุด: " + safeData.updatedAt;
 
-      const timeEl = document.getElementById("time-" + boxKey);
-      timeEl.textContent = "อัปเดตล่าสุด: " + (data.updatedAt || "-");
-
-      ["high", "med", "low"].forEach((lv) => {
-        const btn = document.getElementById("btn-" + boxKey + "-" + lv);
-        btn.className = "level-btn" + (lv === level ? " " + cfg.btnClass : "");
+      ["high", "med", "low"].forEach((level) => {
+        const button = document.getElementById("btn-" + boxKey + "-" + level);
+        button.className = "level-btn" + (level === safeData.level ? " " + cfg.btnClass : "");
+        button.disabled = pendingSaves.has(boxKey);
+        button.setAttribute("aria-pressed", String(level === safeData.level));
       });
     }
 
     function renderAll() {
-      renderBox("boxA", currentState.boxA);
-      renderBox("boxB", currentState.boxB);
+      BOX_KEYS.forEach((key) => renderBox(key, currentState[key]));
 
       const alerts = [];
       if (currentState.boxA.level === "low") {
-        alerts.push("กล่องที่ 1 (ประเภท A: ใช้แล้ว 1 หน้า) อยู่ในระดับ <strong>น้อย</strong> — ควรเติมกระดาษเพิ่ม");
+        alerts.push("กล่องที่ 1 (ประเภท A: ใช้แล้ว 1 หน้า) กระดาษเหลือน้อย — ควรเติมกระดาษ");
       }
       if (currentState.boxB.level === "high") {
-        alerts.push("กล่องที่ 2 (ประเภท B: ใช้แล้ว 2 หน้า) อยู่ในระดับ <strong>มาก</strong> — ควรนำกระดาษไปรวบรวมรีไซเคิล");
+        alerts.push("กล่องที่ 2 (ประเภท B: ใช้แล้ว 2 หน้า) กระดาษอยู่ในระดับมาก — ควรรวบรวมไปรีไซเคิล");
       }
 
       const banner = document.getElementById("alertBanner");
-      if (alerts.length > 0) {
-        banner.innerHTML = "<strong>แจ้งเตือนเจ้าของกล่อง:</strong><br>• " + alerts.join("<br>• ");
+      if (alerts.length) {
+        banner.textContent = "แจ้งเตือนผู้รับผิดชอบ: " + alerts.join(" | ");
         banner.classList.add("show");
       } else {
+        banner.textContent = "";
         banner.classList.remove("show");
       }
     }
 
-    function getThaiTimestamp() {
-      const now = new Date();
-      return now.toLocaleString("th-TH", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      }) + " น.";
-    }
+    async function requestJson(url, options = {}) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-    async function fetchFromCloud() {
       try {
-        const res = await fetch(DB_URL);
-        if (!res.ok) throw new Error("Network error");
-        const data = await res.json();
-        if (data && data.boxA && data.boxB) {
-          currentState = data;
-          renderAll();
-        } else {
-          await saveToCloud();
+        const response = await fetch(url, {
+          cache: "no-store",
+          ...options,
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
         }
-        setSyncStatus("online", "เชื่อมต่อฐานข้อมูลแล้ว (ซิงก์อัตโนมัติ)");
-      } catch (err) {
-        setSyncStatus("error", "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบอินเทอร์เน็ต");
+
+        if (response.status === 204) return null;
+        return await response.json();
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 
-    async function saveToCloud() {
-      setSyncStatus("syncing", "กำลังบันทึกข้อมูล...");
+    async function fetchFromCloud() {
+      if (isFetching || document.hidden) return;
+      isFetching = true;
+
       try {
-        const res = await fetch(DB_URL, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(currentState)
-        });
-        if (!res.ok) throw new Error("Save error");
-        setSyncStatus("online", "บันทึกและซิงก์ข้อมูลเรียบร้อยแล้ว");
-      } catch (err) {
-        setSyncStatus("error", "บันทึกไม่สำเร็จ กรุณาลองกดใหม่อีกครั้ง");
+        const data = await requestJson(DB_URL);
+
+        if (data && typeof data === "object") {
+          BOX_KEYS.forEach((key) => {
+            // อย่าให้ข้อมูลเก่าจากการ polling ทับค่าที่เพิ่งกดบันทึก
+            if (!pendingSaves.has(key) && data[key]) {
+              currentState[key] = normalizeBox(data[key]);
+            }
+          });
+          renderAll();
+        } else {
+          // ฐานข้อมูลว่าง: ตั้งค่าเริ่มต้นแยกทีละกล่อง
+          for (const key of BOX_KEYS) {
+            if (!pendingSaves.has(key)) {
+              await saveBoxToCloud(key, currentState[key], false);
+            }
+          }
+        }
+
+        isOnline = true;
+        setSyncStatus("online", "เชื่อมต่อฐานข้อมูลแล้ว • ซิงก์อัตโนมัติ");
+      } catch (error) {
+        isOnline = false;
+        setSyncStatus("error", "เชื่อมต่อไม่ได้ • จะลองใหม่อัตโนมัติ");
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    async function saveBoxToCloud(boxKey, data, showStatus = true) {
+      const url = DB_URL.replace(/\.json$/, "/" + boxKey + ".json");
+
+      if (showStatus) {
+        setSyncStatus("syncing", "กำลังบันทึกข้อมูล...");
+      }
+
+      // PATCH เฉพาะกล่องที่เปลี่ยน ไม่เขียนทับข้อมูลของอีกกล่อง
+      await requestJson(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(normalizeBox(data))
+      });
+
+      isOnline = true;
+      if (showStatus) {
+        setSyncStatus("online", "บันทึกข้อมูลเรียบร้อยแล้ว");
       }
     }
 
     async function updateLevel(boxKey, level) {
-      currentState[boxKey] = {
-        level: level,
-        updatedAt: getThaiTimestamp()
-      };
+      if (!BOX_KEYS.includes(boxKey) || !LEVEL_CONFIG[level]) return;
+      if (pendingSaves.has(boxKey)) return;
+
+      const previous = { ...currentState[boxKey] };
+      const updated = { level, updatedAt: getThaiTimestamp() };
+
+      pendingSaves.add(boxKey);
+      currentState[boxKey] = updated;
       renderAll();
-      await saveToCloud();
+
+      try {
+        await saveBoxToCloud(boxKey, updated);
+      } catch (error) {
+        // หากบันทึกไม่สำเร็จ ให้คืนค่าก่อนหน้าและแจ้งผู้ใช้
+        currentState[boxKey] = previous;
+        setSyncStatus("error", "บันทึกไม่สำเร็จ • ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง");
+      } finally {
+        pendingSaves.delete(boxKey);
+        renderAll();
+      }
     }
 
-    fetchFromCloud();
-    setInterval(fetchFromCloud, 5000);
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      fetchFromCloud();
+      pollTimer = setInterval(fetchFromCloud, POLL_INTERVAL);
+    }
+
+    // เมื่อกลับมาเปิดแท็บ ให้ดึงข้อมูลล่าสุดทันที
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) fetchFromCloud();
+    });
+
+    window.addEventListener("online", fetchFromCloud);
+    window.addEventListener("offline", () => {
+      isOnline = false;
+      setSyncStatus("error", "อินเทอร์เน็ตขาดการเชื่อมต่อ");
+    });
+
+    renderAll();
+    startPolling();
   </script>
 </body>
 </html>
