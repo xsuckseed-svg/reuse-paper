@@ -1,859 +1,443 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoBox A4 - ระบบแจ้งหยิบและเช็กระดับกระดาษ Reuse</title>
-    <!-- โหลด Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- โหลดฟอนต์ Prompt และ Sarabun สำหรับภาษาไทยที่อ่านง่าย -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- โหลด Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Prompt', 'Sarabun', 'sans-serif'],
-                    },
-                    colors: {
-                        eco: {
-                            50: '#f2f8f4',
-                            100: '#e0efe5',
-                            200: '#c3dfcd',
-                            300: '#98c7aa',
-                            400: '#67a680',
-                            500: '#458861',
-                            600: '#336c4c',
-                            700: '#2a563e',
-                            800: '#234533',
-                            900: '#1d392b',
-                        },
-                        cream: {
-                            50: '#fdfcfa',
-                            100: '#f7f4ed',
-                            200: '#ece5d6',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            background-color: #f7f4ed;
-            color: #1f2937;
-        }
-        /* แอนิเมชันกองกระดาษในกล่อง */
-        .paper-stack-fill {
-            transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.4s ease;
-        }
-        /* ลายเส้นชั้นกระดาษจำลองด้านข้าง */
-        .paper-layers-pattern {
-            background-image: repeating-linear-gradient(
-                to bottom,
-                rgba(255, 255, 255, 0.45) 0px,
-                rgba(255, 255, 255, 0.45) 3px,
-                rgba(0, 0, 0, 0.06) 3px,
-                rgba(0, 0, 0, 0.06) 6px
-            );
-        }
-        .card-hover {
-            transition: all 0.25s ease;
-        }
-        .card-hover:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 28px -6px rgba(42, 86, 62, 0.12);
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EcoBox A4 - ระบบแจ้งหยิบและเช็กกระดาษรีใช้</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f4f7f5;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --high: #16a34a;
+      --high-bg: #dcfce7;
+      --med: #d97706;
+      --med-bg: #fef3c7;
+      --low: #dc2626;
+      --low-bg: #fee2e2;
+      --accent: #0f766e;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Prompt', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px 16px 40px;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 1.5rem;
+      color: var(--accent);
+    }
+
+    header p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .sync-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #9ca3af;
+      display: inline-block;
+    }
+
+    .dot.online { background: #16a34a; }
+    .dot.syncing { background: #d97706; }
+    .dot.error { background: #dc2626; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+    }
+
+    .badge-type {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #e6fffa;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .card h2 {
+      margin: 0 0 4px;
+      font-size: 1.2rem;
+    }
+
+    .desc {
+      margin: 0 0 18px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .box-visual {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .paper-tank {
+      width: 84px;
+      height: 110px;
+      border: 3px solid #374151;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      position: relative;
+      background: #ffffff;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .paper-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      transition: height 0.35s ease, background-color 0.35s ease;
+    }
+
+    .mark-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 1px dashed rgba(55, 65, 81, 0.35);
+      z-index: 2;
+    }
+
+    .mark-high { top: 20%; }
+    .mark-med { top: 55%; }
+    .mark-low { top: 82%; }
+
+    .status-info {
+      flex: 1;
+    }
+
+    .status-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .status-pill {
+      display: inline-block;
+      font-size: 1.15rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+
+    .level-high { background: var(--high-bg); color: var(--high); }
+    .level-med  { background: var(--med-bg); color: var(--med); }
+    .level-low  { background: var(--low-bg); color: var(--low); }
+
+    .updated-time {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .btn-group-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .btn-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    button.level-btn {
+      border: 1.5px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      padding: 10px 6px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button.level-btn:hover {
+      background: #f3f4f6;
+    }
+
+    button.level-btn.active-high {
+      border-color: var(--high);
+      background: var(--high-bg);
+      color: var(--high);
+    }
+
+    button.level-btn.active-med {
+      border-color: var(--med);
+      background: var(--med-bg);
+      color: var(--med);
+    }
+
+    button.level-btn.active-low {
+      border-color: var(--low);
+      background: var(--low-bg);
+      color: var(--low);
+    }
+
+    .alert-banner {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 0.92rem;
+      display: none;
+    }
+
+    .alert-banner.show {
+      display: block;
+    }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-eco-200 selection:text-eco-900">
-
-    <!-- Navbar ด้านบน -->
-    <header class="bg-white/95 backdrop-blur-md border-b border-eco-100 sticky top-0 z-30">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-            <!-- โลโก้และชื่อเว็บ -->
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-eco-500 to-eco-700 flex items-center justify-center text-white shadow-md shadow-eco-600/20">
-                    <i data-lucide="package-open" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <h1 class="text-base sm:text-lg font-bold text-eco-900 leading-tight">จุดบริการกระดาษ Reuse A4</h1>
-                    <p class="text-xs text-eco-600 hidden sm:block">เช็กระดับจากขีดข้างกล่อง • ไม่ต้องนับจำนวนแผ่น</p>
-                </div>
-            </div>
-
-            <!-- สวิตช์สลับหน้าจอ ผู้ใช้งานทั่วไป / เจ้าของเว็บ -->
-            <div class="bg-cream-100 p-1 rounded-xl border border-cream-200 flex items-center">
-                <button id="tabUser" onclick="switchView('user')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-white text-eco-800 shadow-sm">
-                    <i data-lucide="hand" class="w-4 h-4 text-eco-600"></i>
-                    <span>จุดหยิบกระดาษ</span>
-                </button>
-                <button id="tabOwner" onclick="switchView('owner')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-gray-600 hover:text-eco-800 relative">
-                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
-                    <span>สำหรับเจ้าของเว็บ</span>
-                    <span id="ownerAlertDot" class="hidden w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-0.5"></span>
-                </button>
-            </div>
-        </div>
+<body>
+  <div class="container">
+    <header>
+      <h1>ระบบเช็กและแจ้งระดับกระดาษ Reuse</h1>
+      <p>ประเมินจากระดับขีดข้างกล่อง (ไม่ต้องนับจำนวนแผ่น) อัปเดตตรงกันทุกเครื่อง</p>
+      <div class="sync-bar">
+        <span id="syncDot" class="dot"></span>
+        <span id="syncText">กำลังเชื่อมต่อฐานข้อมูล...</span>
+      </div>
     </header>
 
-    <!-- แถบแจ้งเตือนเจ้าของเว็บเมื่อมีกล่องใดกล่องหนึ่งอยู่ที่ระดับ "น้อย" -->
-    <div id="lowLevelBanner" class="hidden bg-red-50 border-b border-red-200">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5 text-red-800">
-                <div class="p-1.5 bg-red-100 rounded-lg text-red-600 shrink-0">
-                    <i data-lucide="bell-ring" class="w-5 h-5"></i>
-                </div>
-                <p class="text-xs sm:text-sm">
-                    <span class="font-bold">แจ้งเตือนเจ้าของเว็บ:</span> 
-                    <span id="lowLevelBannerText">มีกล่องกระดาษ A4 อยู่ในระดับ "น้อย" กรุณานำกระดาษมาเติม</span>
-                </p>
-            </div>
-            <button onclick="switchView('owner')" class="text-xs font-semibold bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shrink-0 shadow-sm">
-                ไปหน้าเจ้าของเว็บ
-            </button>
+    <div class="grid">
+      <!-- กล่องที่ 1: ประเภท A ใช้แล้ว 1 หน้า -->
+      <section class="card">
+        <span class="badge-type">กล่องที่ 1 • ประเภท A</span>
+        <h2>กระดาษใช้แล้ว 1 หน้า</h2>
+        <p class="desc">อีก 1 หน้ายังว่าง สามารถนำกลับมาใช้พิมพ์หรือเขียนซ้ำได้</p>
+
+        <div class="box-visual">
+          <div class="paper-tank" aria-hidden="true">
+            <div class="mark-line mark-high"></div>
+            <div class="mark-line mark-med"></div>
+            <div class="mark-line mark-low"></div>
+            <div id="fill-boxA" class="paper-fill" style="height: 85%; background: #16a34a;"></div>
+          </div>
+          <div class="status-info">
+            <div class="status-label">ระดับปริมาณกระดาษปัจจุบัน</div>
+            <div id="badge-boxA" class="status-pill level-high">มาก</div>
+            <div id="time-boxA" class="updated-time">อัปเดตล่าสุด: -</div>
+          </div>
         </div>
+
+        <div class="btn-group-title">กดเลือกระดับที่เห็นจากขีดข้างกล่อง:</div>
+        <div class="btn-group">
+          <button type="button" id="btn-boxA-high" class="level-btn" onclick="updateLevel('boxA', 'high')">มาก</button>
+          <button type="button" id="btn-boxA-med" class="level-btn" onclick="updateLevel('boxA', 'med')">ปานกลาง</button>
+          <button type="button" id="btn-boxA-low" class="level-btn" onclick="updateLevel('boxA', 'low')">น้อย</button>
+        </div>
+      </section>
+
+      <!-- กล่องที่ 2: ประเภท B ใช้แล้ว 2 หน้า -->
+      <section class="card">
+        <span class="badge-type">กล่องที่ 2 • ประเภท B</span>
+        <h2>กระดาษใช้แล้ว 2 หน้า</h2>
+        <p class="desc">ใช้ครบทั้ง 2 หน้าแล้ว เก็บรวบรวมเพื่อนำไปรีไซเคิล</p>
+
+        <div class="box-visual">
+          <div class="paper-tank" aria-hidden="true">
+            <div class="mark-line mark-high"></div>
+            <div class="mark-line mark-med"></div>
+            <div class="mark-line mark-low"></div>
+            <div id="fill-boxB" class="paper-fill" style="height: 85%; background: #16a34a;"></div>
+          </div>
+          <div class="status-info">
+            <div class="status-label">ระดับปริมาณกระดาษปัจจุบัน</div>
+            <div id="badge-boxB" class="status-pill level-high">มาก</div>
+            <div id="time-boxB" class="updated-time">อัปเดตล่าสุด: -</div>
+          </div>
+        </div>
+
+        <div class="btn-group-title">กดเลือกระดับที่เห็นจากขีดข้างกล่อง:</div>
+        <div class="btn-group">
+          <button type="button" id="btn-boxB-high" class="level-btn" onclick="updateLevel('boxB', 'high')">มาก</button>
+          <button type="button" id="btn-boxB-med" class="level-btn" onclick="updateLevel('boxB', 'med')">ปานกลาง</button>
+          <button type="button" id="btn-boxB-low" class="level-btn" onclick="updateLevel('boxB', 'low')">น้อย</button>
+        </div>
+      </section>
     </div>
 
-    <!-- เนื้อหาหลัก -->
-    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div id="alertBanner" class="alert-banner"></div>
+  </div>
 
-        <!-- ================================================================= -->
-        <!-- มุมมองที่ 1: หน้าจุดหยิบกระดาษ (สำหรับผู้มาใช้งานทั่วไป) -->
-        <!-- ================================================================= -->
-        <div id="userViewSection" class="space-y-8">
-            <!-- หัวข้อแนะนำการใช้งาน -->
-            <div class="text-center max-w-2xl mx-auto">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-eco-100 text-eco-800 text-xs font-semibold mb-2">
-                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                    <span>สังเกตขีดระดับข้างกล่องจริง (มาก / ปานกลาง / น้อย)</span>
-                </span>
-                <h2 class="text-xl sm:text-2xl font-bold text-gray-900">เลือกกล่องกระดาษ A4 ที่คุณหยิบไปใช้งาน</h2>
-                <p class="text-sm text-gray-600 mt-1">
-                    กดปุ่มที่กล่อง <strong class="text-eco-800">ประเภท A</strong> หรือ <strong class="text-amber-800">ประเภท B</strong> แล้วเลือกระดับกระดาษที่เห็นในกล่องหลังหยิบเสร็จ เพื่อแจ้งเตือนให้เจ้าของเว็บทราบ
-                </p>
-            </div>
+  <script>
+    const DB_URL = "https://reuse-paper-sync-default-rtdb.asia-southeast1.firebasedatabase.app/paperBoxes.json";
 
-            <!-- การ์ดกล่องกระดาษ 2 กล่องหลัก (กล่องที่ 1 ประเภท A และ กล่องที่ 2 ประเภท B) -->
-            <div id="userBoxesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                <!-- กล่องทั้ง 2 จะถูกสร้างด้วย JavaScript -->
-            </div>
+    const LEVEL_CONFIG = {
+      high: { label: "มาก", height: "85%", color: "#16a34a", pillClass: "level-high", btnClass: "active-high" },
+      med:  { label: "ปานกลาง", height: "50%", color: "#d97706", pillClass: "level-med", btnClass: "active-med" },
+      low:  { label: "น้อย", height: "20%", color: "#dc2626", pillClass: "level-low", btnClass: "active-low" }
+    };
 
-            <!-- ประวัติการหยิบใช้งานล่าสุด (แบบย่อให้ผู้ใช้งานเห็นความเคลื่อนไหว) -->
-            <section class="bg-white rounded-3xl border border-eco-100 p-5 sm:p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
-                        <i data-lucide="clock" class="w-5 h-5 text-eco-600"></i>
-                        <span>ประวัติการแจ้งหยิบกระดาษล่าสุด</span>
-                    </h3>
-                    <span class="text-xs text-gray-400">อัปเดตอัตโนมัติ</span>
-                </div>
-                <div id="userRecentLogs" class="space-y-2.5">
-                    <!-- รายการประวัติจะแสดงที่นี่ -->
-                </div>
-            </section>
-        </div>
+    let currentState = {
+      boxA: { level: "high", updatedAt: "-" },
+      boxB: { level: "high", updatedAt: "-" }
+    };
 
-        <!-- ================================================================= -->
-        <!-- มุมมองที่ 2: หน้าสำหรับเจ้าของเว็บ (Owner Dashboard) -->
-        <!-- ================================================================= -->
-        <div id="ownerViewSection" class="hidden space-y-8">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-eco-100 shadow-sm">
-                <div>
-                    <span class="text-xs font-bold uppercase tracking-wider text-eco-600">Owner Dashboard</span>
-                    <h2 class="text-xl sm:text-2xl font-bold text-gray-900">สถานะระดับกระดาษ A4 ในกล่องทั้ง 2 ประเภท</h2>
-                    <p class="text-sm text-gray-600 mt-0.5">ตรวจสอบว่ากล่องไหนใกล้หมด (ระดับน้อย) และกดอัปเดตระดับทันทีเมื่อนำกระดาษมาเติม</p>
-                </div>
-                <button onclick="switchView('user')" class="self-start sm:self-center px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                    <span>กลับหน้าจุดหยิบ</span>
-                </button>
-            </div>
+    function setSyncStatus(state, text) {
+      const dot = document.getElementById("syncDot");
+      const label = document.getElementById("syncText");
+      dot.className = "dot " + state;
+      label.textContent = text;
+    }
 
-            <!-- การ์ดควบคุมระดับของกล่องที่ 1 (A) และ กล่องที่ 2 (B) สำหรับเจ้าของเว็บ -->
-            <div id="ownerBoxesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- การ์ดควบคุมสำหรับเจ้าของเว็บจะถูกสร้างด้วย JavaScript -->
-            </div>
+    function renderBox(boxKey, data) {
+      const level = LEVEL_CONFIG[data.level] ? data.level : "high";
+      const cfg = LEVEL_CONFIG[level];
 
-            <!-- ประวัติการหยิบและการเปลี่ยนระดับทั้งหมดสำหรับเจ้าของเว็บ -->
-            <section class="bg-white rounded-3xl border border-eco-100 p-5 sm:p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
-                            <i data-lucide="list-checks" class="w-5 h-5 text-eco-600"></i>
-                            <span>บันทึกการหยิบและการเปลี่ยนระดับกระดาษทั้งหมด</span>
-                        </h3>
-                        <p class="text-xs text-gray-500 mt-0.5">แสดงเวลา ประเภทกระดาษ และระดับคงเหลือในกล่องหลังหยิบ</p>
-                    </div>
-                    <button onclick="clearAllLogs()" class="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                        ล้างประวัติ
-                    </button>
-                </div>
-                <div id="ownerFullLogs" class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                    <!-- รายการประวัติฉบับเต็มจะแสดงที่นี่ -->
-                </div>
-            </section>
-        </div>
+      const fill = document.getElementById("fill-" + boxKey);
+      fill.style.height = cfg.height;
+      fill.style.backgroundColor = cfg.color;
 
-    </main>
+      const badge = document.getElementById("badge-" + boxKey);
+      badge.textContent = cfg.label;
+      badge.className = "status-pill " + cfg.pillClass;
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-eco-100 py-4 mt-10">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
-            <p>ระบบแจ้งรายการกระดาษ Reuse A4 • ประเภท A (ใช้แล้ว 1 หน้า) & ประเภท B (ใช้แล้ว 2 หน้า)</p>
-            <button onclick="resetDefaultData()" class="text-eco-600 hover:underline">รีเซ็ตข้อมูลตัวอย่าง</button>
-        </div>
-    </footer>
+      const timeEl = document.getElementById("time-" + boxKey);
+      timeEl.textContent = "อัปเดตล่าสุด: " + (data.updatedAt || "-");
 
-    <!-- ===================================================================== -->
-    <!-- MODAL: หน้าต่างบันทึกการหยิบกระดาษ & อัปเดตขีดระดับที่มองเห็นในกล่อง -->
-    <!-- ===================================================================== -->
-    <div id="pickupModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-eco-100">
-            <!-- ส่วนหัว Modal -->
-            <div class="flex items-start justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div id="modalBoxBadge" class="w-12 h-12 rounded-2xl bg-eco-100 text-eco-800 font-bold text-xl flex items-center justify-center shrink-0">
-                        A
-                    </div>
-                    <div>
-                        <span id="modalBoxSub" class="text-xs font-semibold text-eco-600">กล่องที่ 1 • ประเภท A</span>
-                        <h3 id="modalBoxTitle" class="text-lg font-bold text-gray-900">กระดาษ A4 ใช้แล้ว 1 หน้า</h3>
-                    </div>
-                </div>
-                <button onclick="closePickupModal()" class="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
+      ["high", "med", "low"].forEach((lv) => {
+        const btn = document.getElementById("btn-" + boxKey + "-" + lv);
+        btn.className = "level-btn" + (lv === level ? " " + cfg.btnClass : "");
+      });
+    }
 
-            <form id="pickupForm" onsubmit="submitPickup(event)" class="space-y-5">
-                <input type="hidden" id="selectedBoxId">
+    function renderAll() {
+      renderBox("boxA", currentState.boxA);
+      renderBox("boxB", currentState.boxB);
 
-                <!-- ขั้นตอนสำคัญ: ให้คนหยิบเลือกขีดระดับที่มองเห็นในกล่องจริงหลังหยิบเสร็จ -->
-                <div class="bg-cream-100 p-4 rounded-2xl border border-cream-200">
-                    <label class="block text-sm font-bold text-gray-800 mb-1">
-                        หลังหยิบแล้ว กระดาษในกล่องเหลืออยู่ขีดระดับไหน? *
-                    </label>
-                    <p class="text-xs text-gray-500 mb-3">ดูขีดวัดระดับที่ติดอยู่ข้างกล่องจริง แล้วกดเลือกตามที่เห็นได้เลย</p>
+      const alerts = [];
+      if (currentState.boxA.level === "low") {
+        alerts.push("กล่องที่ 1 (ประเภท A: ใช้แล้ว 1 หน้า) อยู่ในระดับ <strong>น้อย</strong> — ควรเติมกระดาษเพิ่ม");
+      }
+      if (currentState.boxB.level === "high") {
+        alerts.push("กล่องที่ 2 (ประเภท B: ใช้แล้ว 2 หน้า) อยู่ในระดับ <strong>มาก</strong> — ควรนำกระดาษไปรวบรวมรีไซเคิล");
+      }
 
-                    <div class="grid grid-cols-3 gap-2.5">
-                        <!-- ตัวเลือก 1: มาก -->
-                        <label class="cursor-pointer">
-                            <input type="radio" name="visualLevel" value="high" class="sr-only peer" required>
-                            <div class="p-3 rounded-xl bg-white border-2 border-gray-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 text-center transition-all hover:border-emerald-300">
-                                <div class="w-4 h-4 rounded-full bg-emerald-500 mx-auto mb-1.5 shadow-sm"></div>
-                                <div class="font-bold text-sm text-gray-800 peer-checked:text-emerald-800">มาก</div>
-                                <div class="text-[10px] text-gray-500 mt-0.5">ขีดบน / เต็มกล่อง</div>
-                            </div>
-                        </label>
+      const banner = document.getElementById("alertBanner");
+      if (alerts.length > 0) {
+        banner.innerHTML = "<strong>แจ้งเตือนเจ้าของกล่อง:</strong><br>• " + alerts.join("<br>• ");
+        banner.classList.add("show");
+      } else {
+        banner.classList.remove("show");
+      }
+    }
 
-                        <!-- ตัวเลือก 2: ปานกลาง -->
-                        <label class="cursor-pointer">
-                            <input type="radio" name="visualLevel" value="medium" class="sr-only peer">
-                            <div class="p-3 rounded-xl bg-white border-2 border-gray-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 text-center transition-all hover:border-amber-300">
-                                <div class="w-4 h-4 rounded-full bg-amber-500 mx-auto mb-1.5 shadow-sm"></div>
-                                <div class="font-bold text-sm text-gray-800 peer-checked:text-amber-800">ปานกลาง</div>
-                                <div class="text-[10px] text-gray-500 mt-0.5">ขีดกลางกล่อง</div>
-                            </div>
-                        </label>
+    function getThaiTimestamp() {
+      const now = new Date();
+      return now.toLocaleString("th-TH", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }) + " น.";
+    }
 
-                        <!-- ตัวเลือก 3: น้อย -->
-                        <label class="cursor-pointer">
-                            <input type="radio" name="visualLevel" value="low" class="sr-only peer">
-                            <div class="p-3 rounded-xl bg-white border-2 border-gray-200 peer-checked:border-red-500 peer-checked:bg-red-50 text-center transition-all hover:border-red-300">
-                                <div class="w-4 h-4 rounded-full bg-red-500 mx-auto mb-1.5 shadow-sm"></div>
-                                <div class="font-bold text-sm text-gray-800 peer-checked:text-red-800">น้อย</div>
-                                <div class="text-[10px] text-gray-500 mt-0.5">ขีดล่าง / ใกล้หมด</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
+    async function fetchFromCloud() {
+      try {
+        const res = await fetch(DB_URL);
+        if (!res.ok) throw new Error("Network error");
+        const data = await res.json();
+        if (data && data.boxA && data.boxB) {
+          currentState = data;
+          renderAll();
+        } else {
+          await saveToCloud();
+        }
+        setSyncStatus("online", "เชื่อมต่อฐานข้อมูลแล้ว (ซิงก์อัตโนมัติ)");
+      } catch (err) {
+        setSyncStatus("error", "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบอินเทอร์เน็ต");
+      }
+    }
 
-                <!-- ชื่อผู้หยิบ / แผนก (ไม่บังคับ) -->
-                <div>
-                    <label for="pickerName" class="block text-sm font-medium text-gray-700 mb-1">
-                        ชื่อผู้หยิบ หรือ แผนก <span class="text-gray-400 font-normal">(ไม่บังคับ)</span>
-                    </label>
-                    <input type="text" id="pickerName" placeholder="เช่น น้องเมย์, ฝ่ายบุคคล, ห้องประชุม" class="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-eco-500">
-                </div>
-
-                <!-- หมายเหตุการใช้งาน (ไม่บังคับ) -->
-                <div>
-                    <label for="pickerNote" class="block text-sm font-medium text-gray-700 mb-1">
-                        นำไปใช้ทำอะไร <span class="text-gray-400 font-normal">(ไม่บังคับ)</span>
-                    </label>
-                    <input type="text" id="pickerNote" placeholder="เช่น ปริ้นต์เอกสารร่าง, จดบันทึกงาน" class="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-eco-500">
-                </div>
-
-                <!-- ปุ่มยืนยัน / ยกเลิก -->
-                <div class="pt-1 flex gap-3">
-                    <button type="button" onclick="closePickupModal()" class="flex-1 py-3 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-colors">
-                        ยกเลิก
-                    </button>
-                    <button type="submit" class="flex-1 py-3 px-4 rounded-xl bg-eco-600 hover:bg-eco-700 text-white font-semibold text-sm shadow-md shadow-eco-600/20 flex items-center justify-center gap-2 transition-all">
-                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                        <span>ยืนยันแจ้งหยิบ</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- กล่อง Toast แจ้งเตือนมุมขวาล่าง -->
-    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
-
-    <!-- ===================================================================== -->
-    <!-- JAVASCRIPT LOGIC -->
-    <!-- ===================================================================== -->
-    <script>
-        // ข้อมูลกล่องกระดาษ Reuse A4 ทั้ง 2 กล่องตามที่กำหนด
-        const DEFAULT_BOXES = [
-            {
-                id: 'boxA',
-                boxNumber: 'กล่องที่ 1',
-                code: 'ประเภท A',
-                name: 'กระดาษ A4 ใช้แล้ว 1 หน้า',
-                usageHint: 'ด้านหลังว่างสะอาด เหมาะสำหรับนำไปปริ้นต์ซ้ำหรือเขียนเอกสารภายใน',
-                level: 'high', // 'high' (มาก) | 'medium' (ปานกลาง) | 'low' (น้อย)
-                theme: 'emerald',
-                updatedAt: new Date(Date.now() - 1000 * 60 * 35).toISOString()
-            },
-            {
-                id: 'boxB',
-                boxNumber: 'กล่องที่ 2',
-                code: 'ประเภท B',
-                name: 'กระดาษ A4 ใช้แล้ว 2 หน้า',
-                usageHint: 'ใช้งานครบ 2 ด้านแล้ว เหมาะสำหรับใช้จดโน้ต ร่างงาน หรือรวบรวมส่งรีไซเคิล',
-                level: 'medium', // 'high' (มาก) | 'medium' (ปานกลาง) | 'low' (น้อย)
-                theme: 'amber',
-                updatedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString()
-            }
-        ];
-
-        // ข้อมูลประวัติตัวอย่างเริ่มต้น
-        const DEFAULT_LOGS = [
-            {
-                id: 'log1',
-                action: 'pickup',
-                boxId: 'boxB',
-                boxTitle: 'ประเภท B (ใช้แล้ว 2 หน้า)',
-                level: 'medium',
-                user: 'คุณต้น (ฝ่ายจัดซื้อ)',
-                note: 'หยิบไปใช้จดโน้ตประชุม',
-                timestamp: new Date(Date.now() - 1000 * 60 * 40).toISOString()
-            },
-            {
-                id: 'log2',
-                action: 'pickup',
-                boxId: 'boxA',
-                boxTitle: 'ประเภท A (ใช้แล้ว 1 หน้า)',
-                level: 'high',
-                user: 'น้องแพรว (ธุรการ)',
-                note: 'หยิบไปปริ้นต์ใบปะหน้าเอกสาร',
-                timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString()
-            }
-        ];
-
-        // รายละเอียดการแสดงผลของทั้ง 3 ระดับ (มาก / ปานกลาง / น้อย)
-        const LEVEL_CONFIG = {
-            high: {
-                key: 'high',
-                label: 'มาก',
-                desc: 'กระดาษอยู่ระดับขีดบน (พร้อมใช้งานเต็มที่)',
-                fillPercent: '85%',
-                fillColor: 'bg-emerald-500',
-                badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                dotColor: 'bg-emerald-500',
-                cardBorder: 'border-emerald-200 hover:border-emerald-400'
-            },
-            medium: {
-                key: 'medium',
-                label: 'ปานกลาง',
-                desc: 'กระดาษอยู่ระดับขีดกลางกล่อง',
-                fillPercent: '50%',
-                fillColor: 'bg-amber-400',
-                badgeBg: 'bg-amber-100 text-amber-800 border-amber-200',
-                dotColor: 'bg-amber-500',
-                cardBorder: 'border-amber-200 hover:border-amber-400'
-            },
-            low: {
-                key: 'low',
-                label: 'น้อย',
-                desc: 'กระดาษอยู่ระดับขีดล่าง (ใกล้หมด ควรเติมเพิ่ม)',
-                fillPercent: '18%',
-                fillColor: 'bg-red-500',
-                badgeBg: 'bg-red-100 text-red-800 border-red-200',
-                dotColor: 'bg-red-500 animate-pulse',
-                cardBorder: 'border-red-300 ring-2 ring-red-100 hover:border-red-400'
-            }
-        };
-
-        let boxes = [];
-        let logs = [];
-        let activeView = 'user'; // 'user' หรือ 'owner'
-
-        // เริ่มต้นทำงานเมื่อโหลดหน้าเว็บ
-        document.addEventListener('DOMContentLoaded', () => {
-            loadState();
-            renderApp();
-            lucide.createIcons();
+    async function saveToCloud() {
+      setSyncStatus("syncing", "กำลังบันทึกข้อมูล...");
+      try {
+        const res = await fetch(DB_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentState)
         });
-
-        // โหลดข้อมูลจาก LocalStorage
-        function loadState() {
-            try {
-                const savedBoxes = localStorage.getItem('ecobox_a4_boxes_v2');
-                const savedLogs = localStorage.getItem('ecobox_a4_logs_v2');
-
-                boxes = savedBoxes ? JSON.parse(savedBoxes) : JSON.parse(JSON.stringify(DEFAULT_BOXES));
-                logs = savedLogs ? JSON.parse(savedLogs) : JSON.parse(JSON.stringify(DEFAULT_LOGS));
-
-                if (!savedBoxes || !savedLogs) saveState();
-            } catch (e) {
-                boxes = JSON.parse(JSON.stringify(DEFAULT_BOXES));
-                logs = JSON.parse(JSON.stringify(DEFAULT_LOGS));
-            }
-        }
-
-        // บันทึกข้อมูลลง LocalStorage
-        function saveState() {
-            try {
-                localStorage.setItem('ecobox_a4_boxes_v2', JSON.stringify(boxes));
-                localStorage.setItem('ecobox_a4_logs_v2', JSON.stringify(logs));
-            } catch (e) {
-                console.error('Save state error:', e);
-            }
-        }
-
-        // สลับแท็บระหว่าง "จุดหยิบกระดาษ" และ "สำหรับเจ้าของเว็บ"
-        function switchView(view) {
-            activeView = view;
-            const tabUser = document.getElementById('tabUser');
-            const tabOwner = document.getElementById('tabOwner');
-            const userSec = document.getElementById('userViewSection');
-            const ownerSec = document.getElementById('ownerViewSection');
-
-            if (view === 'user') {
-                tabUser.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-white text-eco-800 shadow-sm';
-                tabOwner.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-gray-600 hover:text-eco-800 relative';
-                userSec.classList.remove('hidden');
-                ownerSec.classList.add('hidden');
-            } else {
-                tabOwner.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 bg-eco-700 text-white shadow-sm relative';
-                tabUser.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-gray-600 hover:text-eco-800';
-                ownerSec.classList.remove('hidden');
-                userSec.classList.add('hidden');
-            }
-
-            renderApp();
-            lucide.createIcons();
-        }
-
-        // อัปเดตการแสดงผลทั้งหมด
-        function renderApp() {
-            checkLowLevelAlerts();
-            renderUserBoxes();
-            renderOwnerBoxes();
-            renderLogs();
-            lucide.createIcons();
-        }
-
-        // ตรวจสอบว่ามีกล่องไหนอยู่ระดับ "น้อย" เพื่อขึ้นแถบแจ้งเตือนให้เจ้าของเว็บ
-        function checkLowLevelAlerts() {
-            const lowBoxes = boxes.filter(b => b.level === 'low');
-            const banner = document.getElementById('lowLevelBanner');
-            const dot = document.getElementById('ownerAlertDot');
-            const text = document.getElementById('lowLevelBannerText');
-
-            if (lowBoxes.length > 0) {
-                banner.classList.remove('hidden');
-                dot.classList.remove('hidden');
-                const names = lowBoxes.map(b => `${b.boxNumber} (${b.code} - ${b.name})`).join(' และ ');
-                text.innerHTML = `<strong>${names}</strong> ตอนนี้อยู่ในระดับ <span class="underline font-bold">"น้อย"</span> แล้ว!`;
-            } else {
-                banner.classList.add('hidden');
-                dot.classList.add('hidden');
-            }
-        }
-
-        // สร้างภาพจำลองกล่องกระดาษที่มีขีดระดับ (มาก / ปานกลาง / น้อย) บนตัวกล่อง
-        function buildVisualBoxGraphic(box, lvlConfig) {
-            return `
-                <div class="my-4 bg-cream-50 rounded-2xl p-4 border border-cream-200 flex items-center gap-4">
-                    <!-- ตัวกล่องจำลองที่มีระดับกระดาษด้านใน -->
-                    <div class="relative w-28 sm:w-32 h-36 bg-white rounded-xl border-2 border-gray-300 shadow-inner overflow-hidden shrink-0 flex flex-col justify-end">
-                        <!-- ป้ายชื่อติดหน้ากล่อง -->
-                        <div class="absolute top-1.5 left-1.5 z-10 px-2 py-0.5 rounded bg-gray-800/80 text-white text-[10px] font-bold tracking-wide">
-                            ${box.code}
-                        </div>
-
-                        <!-- เส้นขีดระดับ มาก (80%) -->
-                        <div class="absolute left-0 right-0 border-t border-dashed border-emerald-400/80 z-10 pointer-events-none" style="bottom: 80%;"></div>
-                        <!-- เส้นขีดระดับ ปานกลาง (50%) -->
-                        <div class="absolute left-0 right-0 border-t border-dashed border-amber-400/80 z-10 pointer-events-none" style="bottom: 50%;"></div>
-                        <!-- เส้นขีดระดับ น้อย (22%) -->
-                        <div class="absolute left-0 right-0 border-t border-dashed border-red-400/80 z-10 pointer-events-none" style="bottom: 22%;"></div>
-
-                        <!-- กองกระดาษ A4 ด้านในกล่อง -->
-                        <div class="w-full paper-stack-fill paper-layers-pattern ${lvlConfig.fillColor} border-t-2 border-black/10" style="height: ${lvlConfig.fillPercent};"></div>
-                    </div>
-
-                    <!-- สเกลขีดระดับข้างกล่อง (มาก / ปานกลาง / น้อย) -->
-                    <div class="flex-1 h-36 flex flex-col justify-between py-1 text-xs">
-                        <!-- ขีดบน: มาก -->
-                        <div class="flex items-center gap-2 ${box.level === 'high' ? 'font-bold text-emerald-700 scale-105 origin-left transition-transform' : 'text-gray-400'}">
-                            <span class="w-3 h-0.5 ${box.level === 'high' ? 'bg-emerald-500 h-1' : 'bg-gray-300'} rounded"></span>
-                            <span>ขีดระดับ: มาก</span>
-                            ${box.level === 'high' ? '<span class="px-1.5 py-0.5 text-[10px] rounded bg-emerald-100 text-emerald-800">ระดับปัจจุบัน</span>' : ''}
-                        </div>
-
-                        <!-- ขีดกลาง: ปานกลาง -->
-                        <div class="flex items-center gap-2 ${box.level === 'medium' ? 'font-bold text-amber-700 scale-105 origin-left transition-transform' : 'text-gray-400'}">
-                            <span class="w-3 h-0.5 ${box.level === 'medium' ? 'bg-amber-500 h-1' : 'bg-gray-300'} rounded"></span>
-                            <span>ขีดระดับ: ปานกลาง</span>
-                            ${box.level === 'medium' ? '<span class="px-1.5 py-0.5 text-[10px] rounded bg-amber-100 text-amber-800">ระดับปัจจุบัน</span>' : ''}
-                        </div>
-
-                        <!-- ขีดล่าง: น้อย -->
-                        <div class="flex items-center gap-2 ${box.level === 'low' ? 'font-bold text-red-700 scale-105 origin-left transition-transform' : 'text-gray-400'}">
-                            <span class="w-3 h-0.5 ${box.level === 'low' ? 'bg-red-500 h-1' : 'bg-gray-300'} rounded"></span>
-                            <span>ขีดระดับ: น้อย</span>
-                            ${box.level === 'low' ? '<span class="px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-800">ใกล้หมด</span>' : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // วาดการ์ดกล่องทั้ง 2 ในหน้าจุดหยิบกระดาษ (User View)
-        function renderUserBoxes() {
-            const container = document.getElementById('userBoxesGrid');
-            container.innerHTML = '';
-
-            boxes.forEach(box => {
-                const lvl = LEVEL_CONFIG[box.level] || LEVEL_CONFIG.high;
-                const isTypeA = box.id === 'boxA';
-
-                const card = document.createElement('div');
-                card.className = `bg-white rounded-3xl p-6 border-2 ${lvl.cardBorder} shadow-sm card-hover flex flex-col justify-between`;
-
-                card.innerHTML = `
-                    <div>
-                        <!-- แถบบน: เลขกล่อง + ป้ายบอกระดับปัจจุบัน -->
-                        <div class="flex items-center justify-between gap-2 mb-3">
-                            <span class="px-3 py-1 rounded-xl text-xs font-bold ${isTypeA ? 'bg-eco-100 text-eco-800' : 'bg-amber-100 text-amber-900'}">
-                                ${box.boxNumber} • ${box.code}
-                            </span>
-                            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${lvl.badgeBg}">
-                                <span class="w-2 h-2 rounded-full ${lvl.dotColor}"></span>
-                                <span>A4 ระดับ: ${lvl.label}</span>
-                            </div>
-                        </div>
-
-                        <!-- ชื่อประเภทกระดาษ -->
-                        <h3 class="text-xl font-bold text-gray-900">${box.name}</h3>
-                        <p class="text-xs sm:text-sm text-gray-600 mt-1">${box.usageHint}</p>
-
-                        <!-- ภาพจำลองกล่องที่มีขีดระดับ -->
-                        ${buildVisualBoxGraphic(box, lvl)}
-                    </div>
-
-                    <div>
-                        <!-- ปุ่มกดแจ้งหยิบกระดาษจากกล่องนี้ -->
-                        <button onclick="openPickupModal('${box.id}')" class="w-full py-3.5 px-5 rounded-2xl font-bold text-sm sm:text-base text-white shadow-md transition-all flex items-center justify-center gap-2 ${isTypeA ? 'bg-eco-600 hover:bg-eco-700 shadow-eco-600/20' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'}">
-                            <i data-lucide="hand" class="w-5 h-5"></i>
-                            <span>หยิบกระดาษจาก${box.boxNumber} (${box.code})</span>
-                        </button>
-                    </div>
-                `;
-
-                container.appendChild(card);
-            });
-        }
-
-        // วาดการ์ดควบคุมสำหรับเจ้าของเว็บ (Owner View)
-        function renderOwnerBoxes() {
-            const container = document.getElementById('ownerBoxesGrid');
-            container.innerHTML = '';
-
-            boxes.forEach(box => {
-                const lvl = LEVEL_CONFIG[box.level] || LEVEL_CONFIG.high;
-
-                const card = document.createElement('div');
-                card.className = `bg-white rounded-3xl p-6 border-2 ${lvl.cardBorder} shadow-sm flex flex-col justify-between`;
-
-                card.innerHTML = `
-                    <div>
-                        <div class="flex items-center justify-between gap-2 mb-2">
-                            <span class="text-xs font-bold text-gray-500">${box.boxNumber} • ${box.code}</span>
-                            <span class="text-[11px] text-gray-400">อัปเดตล่าสุด: ${formatTimeAgo(box.updatedAt)}</span>
-                        </div>
-
-                        <div class="flex items-center justify-between gap-3 mb-2">
-                            <h3 class="text-lg font-bold text-gray-900">${box.name}</h3>
-                            <span class="px-3.5 py-1 rounded-full border text-sm font-bold shrink-0 ${lvl.badgeBg}">
-                                ระดับ: ${lvl.label}
-                            </span>
-                        </div>
-                        <p class="text-xs text-gray-500">${lvl.desc}</p>
-
-                        <!-- ภาพจำลองกล่อง -->
-                        ${buildVisualBoxGraphic(box, lvl)}
-                    </div>
-
-                    <!-- ปุ่มปรับระดับด่วนสำหรับเจ้าของเว็บ (เช่น เติมกระดาษแล้วกดเป็น มาก) -->
-                    <div class="pt-3 border-t border-gray-100">
-                        <p class="text-xs font-semibold text-gray-700 mb-2">อัปเดตระดับกล่อง (เมื่อเจ้าของเติมกระดาษหรือตรวจสอบกล่อง):</p>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button onclick="ownerUpdateLevel('${box.id}', 'high')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${box.level === 'high' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'}">
-                                <span class="w-2 h-2 rounded-full ${box.level === 'high' ? 'bg-white' : 'bg-emerald-500'}"></span>
-                                <span>ระดับ มาก</span>
-                            </button>
-                            <button onclick="ownerUpdateLevel('${box.id}', 'medium')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${box.level === 'medium' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'}">
-                                <span class="w-2 h-2 rounded-full ${box.level === 'medium' ? 'bg-white' : 'bg-amber-500'}"></span>
-                                <span>ปานกลาง</span>
-                            </button>
-                            <button onclick="ownerUpdateLevel('${box.id}', 'low')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${box.level === 'low' ? 'bg-red-600 text-white border-red-600 shadow-sm' : 'bg-red-50 hover:bg-red-100 text-red-800 border-red-200'}">
-                                <span class="w-2 h-2 rounded-full ${box.level === 'low' ? 'bg-white' : 'bg-red-500'}"></span>
-                                <span>ระดับ น้อย</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-
-                container.appendChild(card);
-            });
-        }
-
-        // แสดงรายการประวัติทั้งในหน้า User (5 รายการล่าสุด) และหน้า Owner (ทั้งหมด)
-        function renderLogs() {
-            const userList = document.getElementById('userRecentLogs');
-            const ownerList = document.getElementById('ownerFullLogs');
-
-            if (logs.length === 0) {
-                const emptyHtml = `
-                    <div class="text-center py-6 text-gray-400 text-sm">
-                        ยังไม่มีประวัติการแจ้งหยิบกระดาษ
-                    </div>
-                `;
-                userList.innerHTML = emptyHtml;
-                ownerList.innerHTML = emptyHtml;
-                return;
-            }
-
-            // สร้าง HTML ของแต่ละรายการประวัติ
-            const buildLogItem = (log) => {
-                const lvl = LEVEL_CONFIG[log.level] || LEVEL_CONFIG.high;
-                const isOwnerRefill = log.action === 'owner_update';
-                const timeText = formatTime(log.timestamp);
-
-                return `
-                    <div class="p-3.5 rounded-2xl bg-cream-50 border border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center mt-0.5 ${isOwnerRefill ? 'bg-eco-100 text-eco-700' : 'bg-amber-100 text-amber-800'}">
-                                <i data-lucide="${isOwnerRefill ? 'package-plus' : 'hand'}" class="w-4 h-4"></i>
-                            </div>
-                            <div>
-                                <div class="flex flex-wrap items-center gap-1.5">
-                                    <span class="font-bold text-gray-900">${isOwnerRefill ? 'เจ้าของเว็บอัปเดต' : 'หยิบกระดาษ'} ${log.boxTitle}</span>
-                                </div>
-                                <p class="text-xs text-gray-600 mt-0.5">
-                                    โดย <span class="font-semibold text-gray-800">${log.user}</span>
-                                    ${log.note ? `• "${log.note}"` : ''}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0 shrink-0">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-bold border ${lvl.badgeBg}">
-                                ระดับในกล่อง: ${lvl.label}
-                            </span>
-                            <span class="text-xs text-gray-400">${timeText}</span>
-                        </div>
-                    </div>
-                `;
-            };
-
-            userList.innerHTML = logs.slice(0, 5).map(buildLogItem).join('');
-            ownerList.innerHTML = logs.map(buildLogItem).join('');
-        }
-
-        // =====================================================================
-        // การจัดการ Modal กดหยิบกระดาษ
-        // =====================================================================
-        function openPickupModal(boxId) {
-            const box = boxes.find(b => b.id === boxId);
-            if (!box) return;
-
-            document.getElementById('selectedBoxId').value = box.id;
-            document.getElementById('modalBoxSub').textContent = `${box.boxNumber} • ${box.code}`;
-            document.getElementById('modalBoxTitle').textContent = box.name;
-
-            const badge = document.getElementById('modalBoxBadge');
-            if (box.id === 'boxA') {
-                badge.textContent = 'A';
-                badge.className = 'w-12 h-12 rounded-2xl bg-eco-100 text-eco-800 font-bold text-xl flex items-center justify-center shrink-0';
-            } else {
-                badge.textContent = 'B';
-                badge.className = 'w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 font-bold text-xl flex items-center justify-center shrink-0';
-            }
-
-            // ตั้งค่าเริ่มต้นปุ่มเลือกขีดระดับให้ตรงกับระดับปัจจุบันของกล่องนั้น
-            const radios = document.querySelectorAll('input[name="visualLevel"]');
-            radios.forEach(r => {
-                r.checked = (r.value === box.level);
-            });
-
-            const modal = document.getElementById('pickupModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            lucide.createIcons();
-        }
-
-        function closePickupModal() {
-            const modal = document.getElementById('pickupModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        function submitPickup(event) {
-            event.preventDefault();
-            const boxId = document.getElementById('selectedBoxId').value;
-            const selectedLevelEl = document.querySelector('input[name="visualLevel"]:checked');
-            if (!selectedLevelEl) return;
-
-            const newLevel = selectedLevelEl.value;
-            const pickerName = document.getElementById('pickerName').value.trim() || 'ผู้ใช้งานทั่วไป';
-            const pickerNote = document.getElementById('pickerNote').value.trim();
-
-            const box = boxes.find(b => b.id === boxId);
-            if (!box) return;
-
-            // อัปเดตระดับของกล่องตามที่ผู้ใช้สังเกตเห็นหลังหยิบ
-            box.level = newLevel;
-            box.updatedAt = new Date().toISOString();
-
-            // บันทึกลงประวัติ
-            logs.unshift({
-                id: 'log_' + Date.now(),
-                action: 'pickup',
-                boxId: box.id,
-                boxTitle: `${box.code} (${box.id === 'boxA' ? 'ใช้แล้ว 1 หน้า' : 'ใช้แล้ว 2 หน้า'})`,
-                level: newLevel,
-                user: pickerName,
-                note: pickerNote,
-                timestamp: new Date().toISOString()
-            });
-
-            saveState();
-            renderApp();
-            closePickupModal();
-            document.getElementById('pickerNote').value = '';
-
-            const lvlLabel = LEVEL_CONFIG[newLevel].label;
-            if (newLevel === 'low') {
-                showToast(`บันทึกการหยิบ${box.code}แล้ว • แจ้งเตือนเจ้าของเว็บ: ระดับ "น้อย"`, 'warning');
-            } else {
-                showToast(`บันทึกการหยิบ${box.code}เรียบร้อย (ระดับในกล่อง: ${lvlLabel})`, 'success');
-            }
-        }
-
-        // =====================================================================
-        // การอัปเดตระดับสำหรับเจ้าของเว็บ (Owner Update)
-        // =====================================================================
-        function ownerUpdateLevel(boxId, newLevel) {
-            const box = boxes.find(b => b.id === boxId);
-            if (!box) return;
-
-            box.level = newLevel;
-            box.updatedAt = new Date().toISOString();
-
-            const lvlLabel = LEVEL_CONFIG[newLevel].label;
-            logs.unshift({
-                id: 'log_' + Date.now(),
-                action: 'owner_update',
-                boxId: box.id,
-                boxTitle: `${box.code} (${box.id === 'boxA' ? 'ใช้แล้ว 1 หน้า' : 'ใช้แล้ว 2 หน้า'})`,
-                level: newLevel,
-                user: 'เจ้าของเว็บ',
-                note: newLevel === 'high' ? 'เติมกระดาษใส่กล่องเรียบร้อย' : `ตั้งค่าระดับเป็น "${lvlLabel}"`,
-                timestamp: new Date().toISOString()
-            });
-
-            saveState();
-            renderApp();
-            showToast(`อัปเดต${box.boxNumber} (${box.code}) เป็นระดับ "${lvlLabel}" เรียบร้อย`, 'success');
-        }
-
-        function clearAllLogs() {
-            logs = [];
-            saveState();
-            renderApp();
-            showToast('ล้างประวัติทั้งหมดเรียบร้อยแล้ว', 'info');
-        }
-
-        function resetDefaultData() {
-            boxes = JSON.parse(JSON.stringify(DEFAULT_BOXES));
-            logs = JSON.parse(JSON.stringify(DEFAULT_LOGS));
-            saveState();
-            renderApp();
-            showToast('รีเซ็ตข้อมูลกลับเป็นค่าเริ่มต้นแล้ว', 'info');
-        }
-
-        // จัดรูปแบบเวลา
-        function formatTime(isoString) {
-            const d = new Date(isoString);
-            return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
-        }
-
-        function formatTimeAgo(isoString) {
-            const diffMin = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000);
-            if (diffMin < 1) return 'เมื่อสักครู่';
-            if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
-            const diffHr = Math.floor(diffMin / 60);
-            if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`;
-            return new Date(isoString).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-        }
-
-        // แสดง Toast Notification
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-
-            const styles = {
-                success: 'bg-eco-800 text-white border-eco-700',
-                warning: 'bg-red-600 text-white border-red-500',
-                info: 'bg-gray-800 text-white border-gray-700'
-            };
-
-            const icons = {
-                success: 'check-circle',
-                warning: 'bell-ring',
-                info: 'info'
-            };
-
-            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-lg border text-xs sm:text-sm font-medium transform transition-all duration-300 translate-y-2 opacity-0 ${styles[type] || styles.success}`;
-            toast.innerHTML = `
-                <i data-lucide="${icons[type] || 'check-circle'}" class="w-4 h-4 shrink-0"></i>
-                <span>${message}</span>
-            `;
-
-            container.appendChild(toast);
-            lucide.createIcons();
-
-            requestAnimationFrame(() => {
-                toast.classList.remove('translate-y-2', 'opacity-0');
-            });
-
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-2');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
-    </script>
+        if (!res.ok) throw new Error("Save error");
+        setSyncStatus("online", "บันทึกและซิงก์ข้อมูลเรียบร้อยแล้ว");
+      } catch (err) {
+        setSyncStatus("error", "บันทึกไม่สำเร็จ กรุณาลองกดใหม่อีกครั้ง");
+      }
+    }
+
+    async function updateLevel(boxKey, level) {
+      currentState[boxKey] = {
+        level: level,
+        updatedAt: getThaiTimestamp()
+      };
+      renderAll();
+      await saveToCloud();
+    }
+
+    fetchFromCloud();
+    setInterval(fetchFromCloud, 5000);
+  </script>
 </body>
 </html>
